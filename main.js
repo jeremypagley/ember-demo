@@ -1,6 +1,7 @@
 const { app, BrowserWindow } = require('electron');
 const path = require('path');
 const url = require('url');
+var fs = require('fs');
 
 // Keep a global reference of the window object, if you don't, the window will
 // be closed automatically when the JavaScript object is garbage collected.
@@ -51,16 +52,42 @@ app.on('activate', () => {
   }
 });
 
-// In this file you can include the rest of your app's specific main process
-// code. You can also put them in separate files and require them here.
 
+
+//TODO: Break this out into its own code
 const ipc = require('electron').ipcMain
 const dialog = require('electron').dialog
 
-ipc.on('open-file-dialog', function (event) {
+ipc.on('open-file-dialog', (event) => {
   dialog.showOpenDialog({
-    properties: ['openFile', 'openDirectory']
-  }, function (files) {
-    if (files) event.sender.send('selected-directory', files)
+    // On Win & linux a open dialog can not be both a file and directory opener
+    properties: ['openFile', 'multiSelections'],
+    filters: [
+      {name: 'Images', extensions: ['jpg', 'png', 'gif']}
+    ]
+  }, (files) => {
+    if (files) {
+      event.sender.send('selected-file', files)
+      SaveImages(files)
+    }
   })
 })
+
+function SaveImages(files) {
+  files.forEach((file, indx) => {
+    fs.readFile(file, function (err, data) {
+      var imageName = path.basename(file);
+      if (err) {
+        console.log(`Error reading file: ${file}`)
+      } else {
+        var newPath = __dirname + "/public/imports/" + imageName
+        // write file to ./public/imports/ folder
+        fs.writeFile(newPath, data, function (err) {
+          // let's see it
+          if (err) console.log(`Error writing file to ${newPath}: `, err.message)
+          console.log(`Imported ${imageName} Successfully`)
+        })
+      }
+    })
+  })
+}
